@@ -10,13 +10,29 @@ runs:
     - name: Set up environment variables
       shell: bash
       run: |
-        cat << EOF >> $GITHUB_ENV
-        OPENLANE_TAG=2023.06.26
-        OPENLANE_IMAGE_NAME=efabless/openlane:3bc9d02d0b34ad032921553e512fbe4bebf1d833
-        OPENLANE_ROOT=/home/runner/openlane
-        PDK_ROOT=/home/runner/pdk
-        PDK=sky130A
-        EOF
+        # Might as well try this as well
+        test -n "$OPENLANE_TAG"        || export OPENLANE_TAG="2023.06.26"
+        test -n "$OPENLANE_IMAGE_NAME" || export OPENLANE_IMAGE_NAME="efabless/openlane:3bc9d02d0b34ad032921553e512fbe4bebf1d833"
+        test -n "$OPENLANE_ROOT"       || export OPENLANE_ROOT="/home/runner/openlane"
+        test -n "$PDK_ROOT"            || export PDK_ROOT="/home/runner/pdk"
+        test -n "$PDK"                 || export PDK="sky130A"
+
+        echo "OPENLANE_TAG=$OPENLANE_TAG" >> $GITHUB_ENV
+        echo "OPENLANE_IMAGE_NAME=$OPENLANE_IMAGE_NAME" >> $GITHUB_ENV
+        echo "OPENLANE_ROOT=$OPENLANE_ROOT" >> $GITHUB_ENV
+        echo "PDK_ROOT=$PDK_ROOT" >> $GITHUB_ENV
+        echo "PDK=$PDK" >> $GITHUB_ENV
+
+        echo "=== $GITHUB_ENV"
+        cat $GITHUB_ENV
+
+        #cat << EOF >> $GITHUB_ENV
+        #OPENLANE_TAG=2023.06.26
+        #OPENLANE_IMAGE_NAME=efabless/openlane:3bc9d02d0b34ad032921553e512fbe4bebf1d833
+        #OPENLANE_ROOT=/home/runner/openlane
+        #PDK_ROOT=/home/runner/pdk
+        #PDK=sky130A
+        #EOF
 
     # Install librsvg2-bin (for rsvg-convert) and pngquant (for heavy PNG compression)
     - name: Install prerequisites
