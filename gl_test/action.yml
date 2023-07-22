@@ -9,6 +9,9 @@ inputs:
     description: 'env:GATES'
     required: true
     default: 'yes'
+  RANDOM_POLICY:
+    description: 'env:RANDOM_POLICY zero/one/random/<blank> ?'
+    required: false
 
 runs:
   using: 'composite'
@@ -56,7 +59,8 @@ runs:
 
     - name: test
       env:
-        GATES:	${{ inputs.GATES }}
+        GATES:         ${{ inputs.GATES }}
+        RANDOM_POLICY: ${{ inputs.RANDOM_POLICY }}
       shell: bash
       run: |
         pwd
@@ -65,7 +69,7 @@ runs:
         cd src
         make clean
         rm -f results.xml
-        GATES=${GATES:-yes} make
+        GATES=${GATES:-yes} RANDOM_POLICY=${RANDOM_POLICY} make
         test -f results.xml
         # make will return success even if the test fails, so check for failure in the results.xml
         ! grep failure results.xml

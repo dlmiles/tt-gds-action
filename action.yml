@@ -4,10 +4,23 @@ branding:
   color: purple
   icon: layers
 
+inputs:
+  OPENLANE_TAG:
+    description: 'OPENLANE_TAG (e.g. 2023.09.11) ?'
+    required: true
+    default: '2023.09.11'
+  OPENLANE_IMAGE_NAME:
+    description: 'OPENLANE_IMAGE_NAME (e.g. efabless/openlane:7e5a2e9fb274c0a100b4859a927adce7089455ff) ?'
+    required: false
+    default: 'efabless/openlane:7e5a2e9fb274c0a100b4859a927adce7089455ff'
+
 runs:
   using: 'composite'
   steps:
     - name: Set up environment variables
+      env:
+        OPENLANE_TAG:         ${{ inputs.OPENLANE_TAG }}
+        OPENLANE_IMAGE_NAME:  ${{ inputs.OPENLANE_IMAGE_NAME  }}
       shell: bash
       run: |
         # Might as well try this as well
@@ -25,14 +38,6 @@ runs:
 
         echo "=== $GITHUB_ENV"
         cat $GITHUB_ENV
-
-        #cat << EOF >> $GITHUB_ENV
-        #OPENLANE_TAG=2023.06.26
-        #OPENLANE_IMAGE_NAME=efabless/openlane:3bc9d02d0b34ad032921553e512fbe4bebf1d833
-        #OPENLANE_ROOT=/home/runner/openlane
-        #PDK_ROOT=/home/runner/pdk
-        #PDK=sky130A
-        #EOF
 
     # Install librsvg2-bin (for rsvg-convert) and pngquant (for heavy PNG compression)
     - name: Install prerequisites
@@ -92,11 +97,26 @@ runs:
         git clone --depth=1 --branch $OPENLANE_TAG https://github.com/The-OpenROAD-Project/OpenLane.git $OPENLANE_ROOT
         cd $OPENLANE_ROOT
 
-        curl -s -o ./openlane_2023.06.26.patch "https://raw.githubusercontent.com/dlmiles/tt-gds-action/tt04/openlane_2023.06.26.patch"
-        patch -p1 < ./openlane_2023.06.26.patch
+        # I expect this issue to be resolved in the future by OpenLane by moving forward to PyYaml 6.x
+        if test -f dependencies/python/run_time.txt && egrep -sqi "pyyaml.*=.*5.4[0-9\.]*$" dependencies/python/run_time.txt
+        then
+          PATCH_FILENAME="openlane_2023.06.26.patch"
+          curl -s -o ./${PATCH_FILENAME} "https://raw.githubusercontent.com/dlmiles/tt-gds-action/tt04/${PATCH_FILENAME}"
+          if patch -p1 --dry-run < ./${PATCH_FILENAME}
+          then
+            echo "### PATCHING: $PATCH_FILENAME"
+            patch -p1 < ./${PATCH_FILENAME}
 
-        curl -s -o ./hotfix_pyyaml.sh "https://raw.githubusercontent.com/dlmiles/tt-gds-action/tt04/hotfix_pyyaml.sh"
-        chmod a+x hotfix_pyyaml.sh
+            curl -s -o ./hotfix_pyyaml.sh "https://raw.githubusercontent.com/dlmiles/tt-gds-action/tt04/hotfix_pyyaml.sh"
+            chmod a+x hotfix_pyyaml.sh
+          elif [ "$OPENLANE_TAG" = "2023.06.26" ]
+          then
+            echo "$0: Unable to patch OPENLANE_TAG=$OPENLANE_TAG with ./${PATCH_FILENAME}"
+            echo "=== ./${PATCH_FILENAME} :"
+            cat "./${PATCH_FILENAME}"
+            exit 1
+          fi
+        fi
 
         make
 
