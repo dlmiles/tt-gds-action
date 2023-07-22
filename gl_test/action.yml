@@ -8,6 +8,10 @@ inputs:
     description: 'The directory with the Makefile for running the tests'
     required: true
     default: 'src'
+  GATES:
+    description: 'env:GATES'
+    required: true
+    default: 'yes'
 
 runs:
   using: 'composite'
@@ -54,6 +58,8 @@ runs:
       run: sudo apt-get update && sudo apt-get install -y iverilog
 
     - name: test
+      env:
+        GATES:	${{ inputs.GATES }}
       shell: bash
       run: |
         pwd
@@ -62,7 +68,7 @@ runs:
         cd "${{ inputs.test-dir }}"
         make clean
         rm -f results.xml
-        GATES=yes make
+        GATES=${GATES:-yes} make
         test -f results.xml
         # make will return success even if the test fails, so check for failure in the results.xml
         ! grep failure results.xml
