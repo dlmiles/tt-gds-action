@@ -1,0 +1,168 @@
+name: 'Tiny Tapeout Publish Action'
+description: 'This action collates artifacts to publish to gh-pages'
+branding:
+  color: purple
+  icon: globe_with_meridians
+
+inputs:
+  token:
+    description: 'A Github PAT'
+    required: true
+
+runs:
+  using: 'composite'
+
+  steps:
+    - name: 'gh CLI run download...'
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      shell: bash
+      run: |
+        REPO_ARGS="-R ${GITHUB_REPOSITORY}"
+
+        JSON_ARGS="--json conclusion,createdAt,databaseId,displayTitle,event,headBranch,headSha,name,number,startedAt,status,updatedAt,url,workflowDatabaseId,workflowName"
+
+        # This needs more research to confirm best method
+        #SELECT_headSha="06d09f0afb2b318d045cb9d9b492f40c87e3ac76"
+        SELECT_headSha="${GITHUB_SHA}"
+
+        # gds.yaml artifacts
+                         gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\")" | jq -C
+        gds_databaseId=$(gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId")
+        if [ -n "${gds_databaseId}" ]
+        then
+          if gh run download ${REPO_ARGS} "${gds_databaseId}" -D viewer -n viewer
+          then
+            echo "check_gds_viewer_artifact=true" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+        # docs.yaml artifacts
+                          gh run list ${REPO_ARGS} --workflow docs.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\")" | jq -C
+        docs_databaseId=$(gh run list ${REPO_ARGS} --workflow docs.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId")
+        if [ -n "${docs_databaseId}" ]
+        then
+          if gh run download ${REPO_ARGS} "${docs_databaseId}" -D docs -n PDF
+          then
+            echo "check_docs_PDF_artifact=true" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+        # coverage.yaml artifacts
+                              gh run list ${REPO_ARGS} --workflow coverage.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\")" | jq -C
+        coverage_databaseId=$(gh run list ${REPO_ARGS} --workflow coverage.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId")
+        if [ -n "${coverage_databaseId}" ]
+        then
+          if gh run download ${REPO_ARGS} "${coverage_databaseId}" -D coverage -n coverage
+          then
+            echo "check_coverage_coverage_artifact=true" >> $GITHUB_OUTPUT        
+          fi
+        fi
+
+        find . || true
+        ls -lR || true
+
+    #- name: Download viewer artifact
+    #  uses: actions/download-artifact@v3
+    #  with:
+    #    name: viewer
+
+    #- name: Check docs artifact
+    #  # v0=3c5206b1411c0d2fc0840f56b7140646933d9d6a (on 26-Jul-2023)
+    #  uses: xSAVIKx/artifact-exists-action@3c5206b1411c0d2fc0840f56b7140646933d9d6a
+    #  id: check_docs_artifact
+    #  with:
+    #    name: docs
+
+    #- name: Download docs artifact
+    #  if: steps.check_docs_artifact.outputs.exists
+    #  uses: actions/download-artifact@v3
+    #  with:
+    #    name: docs
+
+    #- name: Check coverage artifact
+    #  # v0=3c5206b1411c0d2fc0840f56b7140646933d9d6a (on 26-Jul-2023)
+    #  uses: xSAVIKx/artifact-exists-action@3c5206b1411c0d2fc0840f56b7140646933d9d6a
+    #  id: check_coverage_artifact
+    #  with:
+    #    name: coverage
+
+    #- name: Download coverage artifact
+    #  if: steps.check_coverage_artifact.outputs.exists
+    #  uses: actions/download-artifact@v3
+    #  with:
+    #    name: coverage
+
+    - name: Prepare gh-pages
+      shell: bash
+      run: |
+        mkdir gh-pages
+
+        [ ! -d docs     ] || cp -av docs     gh-pages/
+        [ ! -d coverage ] || cp -av coverage gh-pages/
+        # Currently this next one has homepage
+        [ ! -d viewer   ] || cp -av viewer   gh-pages/
+
+        # Coverage link will target /coverage/ but it is actually at coverage/coverage_html/index.html
+        if [ -f gh-pages/coverage/coverage_html/index.html ] && [ ! -f gh-pages/coverage/index.html ]
+        then
+          cat << EOF >> gh-pages/coverage/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Redirecting to coverage_html/index.html</title>
+          </head>
+          <body>
+            <script>
+              location.href = "coverage_html/index.html";
+            </script>
+          </body>
+          </html>
+        EOF
+          echo "Creating: coverage/index.html"
+          cat gh-pages/coverage/index.html
+        fi
+
+        # Homepage
+        if [ -f gh-pages/viewer/index.html ] && [ ! -f gh-pages/index.html ]
+        then
+          cat << EOF >> gh-pages/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${GITHUB_REPOSITORY}</title>
+          </head>
+          <body>
+            <div>
+              <div><a href="viewer/index.html">Viewer</a></div>
+              <div><a href="docs/datasheet.pdf">Docs</a></div>
+              <div><a href="coverage/coverage_html/index.html">Coverage</a></div>
+            </div>
+          </body>
+          </html>
+        EOF
+          echo "Creating: index.html"
+          cat gh-pages/index.html
+        fi
+
+        find gh-pages -type f -exec chmod 0444 {} \;
+        find gh-pages -type d -exec chmod 0755 {} \;
+
+        find gh-pages || true
+        ls -lR gh-pages || true
+
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v1
+      with:
+        path: 'gh-pages'
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2
+

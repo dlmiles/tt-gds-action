@@ -58,13 +58,10 @@ runs:
         EOF
 
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v1
+      uses: actions/upload-artifact@v1
       with:
+        name: viewer
         path: 'gh-pages'
-
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v2
 
     - name: Display preview in workflow summary
       shell: bash
