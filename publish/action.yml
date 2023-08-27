@@ -129,6 +129,10 @@ runs:
         # Homepage
         if [ -f gh-pages/viewer/index.html ] && [ ! -f gh-pages/index.html ]
         then
+          _GITHUB_PROJECT_NAME=$(echo -n "$GITHUB_REPOSITORY" | cut -d '/' -f2-)
+          PAGE_URL=${PAGE_URL:-"https://${GITHUB_REPOSITORY_OWNER}.github.io/${_GITHUB_PROJECT_NAME}/viewer"}
+          PAGE_URL=$(echo "$PAGE_URL" | sed -e 's/\/$//')
+
           cat << EOF >> gh-pages/index.html
           <!DOCTYPE html>
           <html lang="en">
@@ -141,8 +145,9 @@ runs:
           <body>
             <div>
               <div><a href="viewer/index.html">Viewer</a></div>
-              <div><a href="docs/datasheet.pdf">Docs</a></div>
               <div><a href="coverage/coverage_html/index.html">Coverage</a></div>
+              <div><a href="docs/datasheet.pdf">datasheet.pdf</a></div>
+              <div><img src="$PAGE_URL/gds_render.png"/></div>
             </div>
           </body>
           </html>

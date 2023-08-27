@@ -67,6 +67,8 @@ runs:
       shell: bash
       run: |
         PAGE_URL=${{ steps.deployment.outputs.page_url }}
+        _GITHUB_PROJECT_NAME=$(echo -n "$GITHUB_REPOSITORY" | cut -d '/' -f2-)
+        PAGE_URL=${PAGE_URL:-"https://${GITHUB_REPOSITORY_OWNER}.github.io/${_GITHUB_PROJECT_NAME}/viewer"}
         PAGE_URL=$(echo "$PAGE_URL" | sed -e 's/\/$//')
         cat << EOF >> $GITHUB_STEP_SUMMARY
         # 3D Viewer
