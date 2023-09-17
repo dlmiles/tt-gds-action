@@ -103,6 +103,35 @@ runs:
         # Currently this next one has homepage
         [ ! -d viewer   ] || cp -av viewer   gh-pages/
 
+        # Surfer (https://surfer-project.org/) support
+        if wget -q -O surfer.zip "https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=pages"
+        then
+          unzip surfer.zip
+
+          _GITHUB_PROJECT_NAME=$(echo -n "$GITHUB_REPOSITORY" | cut -d '/' -f2-)
+          [ -f public/index.html ]    && sed -e "s#<base href=[^>]\+>##g"                                                        -i public/index.html
+
+          #[ -f public/index.html ]    && sed -e "s#'/surfer#'/${_GITHUB_PROJECT_NAME}/surfer/surfer#g"                           -i public/index.html
+          #[ -f public/index.html ]    && sed -e "s#load\" href=\"/surfer#load\" href=\"/${_GITHUB_PROJECT_NAME}/surfer/surfer#"  -i public/index.html
+          #[ -f public/index.html ]    && sed -e "s#base href=\"/\"#base href=\"/${_GITHUB_PROJECT_NAME}/surfer/\"#"              -i public/index.html
+          #[ -f public/manifest.json ] && sed -e "s#\"/index.html\"#\"/${_GITHUB_PROJECT_NAME}/surfer/index.html\"#"              -i public/manifest.json
+
+          [ ! -d public   ] || cp -av public    gh-pages/surfer
+
+          # Fake VCD files for testing
+          wget -q -O test-vcd.vcd "https://raw.githubusercontent.com/wavedrom/vcd-samples/trunk/swerv1.vcd"
+          cp -v test-vcd.vcd test-vcd.bak
+          gzip -9v test-vcd.vcd
+          mv -v test-vcd.bak test-vcd.vcd
+
+          cp -v test-vcd.vcd gatelevel-test-vcd.vcd
+          cp -v test-vcd.vcd.gz gatelevel-test-vcd.vcd.gz
+
+          mkdir gh-pages/waveform
+          mv -v test-vcd* gh-pages/waveform/
+          mv -v gatelevel-test-vcd* gh-pages/waveform/
+        fi
+
         # Coverage link will target /coverage/ but it is actually at coverage/coverage_html/index.html
         if [ -f gh-pages/coverage/coverage_html/index.html ] && [ ! -f gh-pages/coverage/index.html ]
         then
@@ -130,8 +159,9 @@ runs:
         if [ -f gh-pages/viewer/index.html ] && [ ! -f gh-pages/index.html ]
         then
           _GITHUB_PROJECT_NAME=$(echo -n "$GITHUB_REPOSITORY" | cut -d '/' -f2-)
-          PAGE_URL=${PAGE_URL:-"https://${GITHUB_REPOSITORY_OWNER}.github.io/${_GITHUB_PROJECT_NAME}/viewer"}
-          PAGE_URL=$(echo "$PAGE_URL" | sed -e 's/\/$//')
+          PAGE_URL=${PAGE_URL:-"https://${GITHUB_REPOSITORY_OWNER}.github.io/${_GITHUB_PROJECT_NAME}"}
+          VIEWER_PAGE_URL="${PAGE_URL}/viewer"
+          VIEWER_PAGE_URL=$(echo "$VIEWER_PAGE_URL" | sed -e 's/\/$//')
 
           cat << EOF >> gh-pages/index.html
           <!DOCTYPE html>
@@ -144,10 +174,12 @@ runs:
           </head>
           <body>
             <div>
-              <div><a href="viewer/index.html">Viewer</a></div>
+              <div><a href="viewer/index.html">GDS 3D Viewer</a></div>
               <div><a href="coverage/coverage_html/index.html">Coverage</a></div>
               <div><a href="docs/datasheet.pdf">datasheet.pdf</a></div>
-              <div><img src="$PAGE_URL/gds_render.png"/></div>
+              <div><a href="surfer/index.html?load_url=${PAGE_URL}/waveform/test-vcd.vcd">Surfer VCD Viewer (test-vcd.vcd)</a></div>
+              <div><a href="surfer/index.html?load_url=${PAGE_URL}/waveform/gatelevel-test-vcd.vcd">Surfer VCD Viewer (gatelevel-test-vcd.vcd)</a></div>
+              <div><img src="$VIEWER_PAGE_URL/gds_render.png"/></div>
             </div>
           </body>
           </html>
