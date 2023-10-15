@@ -52,4 +52,22 @@ runs:
         cd src
         cp $PDK_ROOT/$PDK/libs.ref/sky130_fd_sc_hd/verilog/primitives.v primitives.v
         cp $PDK_ROOT/$PDK/libs.ref/sky130_fd_sc_hd/verilog/sky130_fd_sc_hd.v sky130_fd_sc_hd.v
-        eqy -f equivalence.eqy
+
+        ls -la
+        echo "env.PDK_ROOT=${PDK_ROOT}"
+        eqy --version || true
+        eqy -V || true
+
+        if test -f equivalence.eqy
+        then
+          eqy -f equivalence.eqy
+        fi
+
+    - name: Publish eqy_test logs
+      if: success() || failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: eqy_logs
+        path: |
+          src
+
