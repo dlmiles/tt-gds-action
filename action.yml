@@ -13,6 +13,9 @@ inputs:
     description: 'OPENLANE_IMAGE_NAME (e.g. efabless/openlane:7e5a2e9fb274c0a100b4859a927adce7089455ff) ?'
     required: false
     default: 'efabless/openlane:7e5a2e9fb274c0a100b4859a927adce7089455ff'
+  PDK_VERSION:
+    description: 'PDK_VERSION (e.g. 2023.09.14 or dd7771c384ed36b91a25e9f8b314355fc26561be) ?'
+    default: 'dd7771c384ed36b91a25e9f8b314355fc26561be'
 
 runs:
   using: 'composite'
@@ -21,6 +24,7 @@ runs:
       env:
         OPENLANE_TAG:         ${{ inputs.OPENLANE_TAG }}
         OPENLANE_IMAGE_NAME:  ${{ inputs.OPENLANE_IMAGE_NAME  }}
+        PDK_VERSION:          ${{ inputs.PDK_VERSION }}
       shell: bash
       run: |
         # REMINDER: When updating the OpenLane version do not forget to change the PDKs used for
@@ -31,12 +35,14 @@ runs:
         test -n "$OPENLANE_TAG"        || export OPENLANE_TAG="2023.09.11"
         test -n "$OPENLANE_IMAGE_NAME" || export OPENLANE_IMAGE_NAME="efabless/openlane:7e5a2e9fb274c0a100b4859a927adce7089455ff"
         test -n "$OPENLANE_ROOT"       || export OPENLANE_ROOT="/home/runner/openlane"
+        #test -n "$PDK_VERSION"         || export PDK_VERSION=""   ## empty: use OPENLANE default
         test -n "$PDK_ROOT"            || export PDK_ROOT="/home/runner/pdk"
         test -n "$PDK"                 || export PDK="sky130A"
 
         echo "OPENLANE_TAG=$OPENLANE_TAG" >> $GITHUB_ENV
         echo "OPENLANE_IMAGE_NAME=$OPENLANE_IMAGE_NAME" >> $GITHUB_ENV
         echo "OPENLANE_ROOT=$OPENLANE_ROOT" >> $GITHUB_ENV
+        test -z "$PDK_VERSION" || echo "PDK_VERSION=$PDK_VERSION" >> $GITHUB_ENV
         echo "PDK_ROOT=$PDK_ROOT" >> $GITHUB_ENV
         echo "PDK=$PDK" >> $GITHUB_ENV
 
@@ -120,6 +126,20 @@ runs:
             cat "./${PATCH_FILENAME}"
             exit 1
           fi
+        fi
+
+        # This will edit the OpenLane manifest to use a different PDK_VERSION if set
+        if test -n "$PDK_VERSION" && test -f dependencies/tool_metadata.yml
+        then
+          echo "PDK_VERSION=$PDK_VERSION"
+
+          echo "BEFORE dependencies/tool_metadata.yml:"
+          sed -n -e '\/ name: open_pdks/,\/^-/p' dependencies/tool_metadata.yml
+
+          sed -e '\/ name: open_pdks/b' -e "\\/^  commit: /c\\  commit: ${PDK_VERSION}" -i dependencies/tool_metadata.yml
+
+          echo "AFTER dependencies/tool_metadata.yml:"
+          sed -n -e '\/ name: open_pdks/,\/^-/p' dependencies/tool_metadata.yml
         fi
 
         make
