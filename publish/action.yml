@@ -28,7 +28,7 @@ runs:
 
         # gds.yaml artifacts
                          gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\")" | jq -C
-        gds_databaseId=$(gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId")
+        gds_databaseId=$(gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId" | jq -cr | tr -d '\n')
         if [ -n "${gds_databaseId}" ]
         then
           if gh run download ${REPO_ARGS} "${gds_databaseId}" -D viewer -n viewer
@@ -39,7 +39,7 @@ runs:
 
         # docs.yaml artifacts
                           gh run list ${REPO_ARGS} --workflow docs.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\")" | jq -C
-        docs_databaseId=$(gh run list ${REPO_ARGS} --workflow docs.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId")
+        docs_databaseId=$(gh run list ${REPO_ARGS} --workflow docs.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId" | jq -cr | tr -d '\n')
         if [ -n "${docs_databaseId}" ]
         then
           if gh run download ${REPO_ARGS} "${docs_databaseId}" -D docs -n PDF
@@ -50,7 +50,7 @@ runs:
 
         # coverage.yaml artifacts
                               gh run list ${REPO_ARGS} --workflow coverage.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\")" | jq -C
-        coverage_databaseId=$(gh run list ${REPO_ARGS} --workflow coverage.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId")
+        coverage_databaseId=$(gh run list ${REPO_ARGS} --workflow coverage.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId" | jq -cr | tr -d '\n')
         if [ -n "${coverage_databaseId}" ]
         then
           if gh run download ${REPO_ARGS} "${coverage_databaseId}" -D coverage -n coverage
