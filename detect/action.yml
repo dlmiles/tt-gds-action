@@ -1,0 +1,35 @@
+name: 'Tiny Tapeout Detect Action'
+description: 'This action detects documentation of your Tiny Tapeout project'
+branding:
+  color: purple
+  icon: book-open
+
+outputs:
+  pandoc:
+    description: 'Project uses pandoc ?'
+    value: ${{ steps.pandoc.outputs.pandoc }}
+  asciidoc:
+    description: 'Project uses asciidoc ?'
+    value: ${{ steps.asciidoc.outputs.asciidoc }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Detect asciidoc usage
+      id: pandoc
+      shell: bash
+      run: |
+        echo "pandoc=true"
+        # Always true for now using ./tt/tt_tool.py --check-docs .. --create-pdf
+        echo "pandoc=true" >> $GITHUB_OUTPUT
+
+    - name: Detect asciidoc usage
+      id: asciidoc
+      shell: bash
+      run: |
+        # Maybe also find . -type f -name "*.adoc" ?
+        if [ -d "asciidoc" ]
+        then
+          echo "asciidoc=true"
+          echo "asciidoc=true" >> $GITHUB_OUTPUT
+        fi
