@@ -1,0 +1,112 @@
+name: 'Tiny Tapeout AsciiDoc Action'
+description: 'This action create the documentation from AsciiDoc format for your Tiny Tapeout project'
+branding:
+  color: purple
+  icon: book-open
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        #cache: 'pip' # caching pip dependencies
+
+    - run: pip list
+      shell: bash
+
+    - uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: 3.0
+
+    - uses: reitzig/actions-asciidoctor@v2.0.1
+      with:
+        version: 2.0.20
+
+    - name: Install Packages
+      shell: bash
+      run: |
+        sudo apt-get install -y graphviz graphviz-doc
+        sudo npm -g install wavedrom-cli
+        sudo gem install --no-user-install asciidoctor-diagram
+        sudo gem install --no-user-install asciidoctor-pdf
+        echo "github.action_path=${{ github.action_path }}"
+        bundle install "--gemfile=${{ github.action_path }}/Gemfile"
+        #bundle info asciidoctor-diagram --path
+        #bundle info asciidoctor-pdf --path
+
+    - name: Version Summary
+      shell: bash
+      run: |
+        find . -iname "asciidoc*" || true
+        #find / -xdev -iname "asciidoc*" 2>/dev/null
+
+        asciidoctor --version || true
+        dot -V || true
+        wavedrom-cli --version || true
+        asciidoc --version || true
+        asciidoc.py --version || true
+        asciidoctor-diagram --version || true
+        asciidoctor-pdf --version || true
+
+    - name: Asciidoctor
+      shell: bash
+      run: |
+        [ ! -d asciidoc ] || find asciidoc 2>/dev/null || true
+        #find . -not -path "./asciidoc/*" -iname "*.adoc" 2>/dev/null || true
+
+        mkdir -vp docs_output/asciidoc
+        DESTDIR="$(pwd)/docs_output/asciidoc"
+        SRCDIR=$(pwd)
+
+        [ ! -d asciidoc ] || cd asciidoc
+        #  "--require" asciidoctor-diagram \  #
+        asciidoctor --warnings --verbose --trace \
+          "-r" asciidoctor-diagram \
+          "-r" asciidoctor-pdf \
+          "--attribute" asciidoctor-pdf-available \
+          "--attribute" wavedrom-available \
+          "--attribute" graphviz-available \
+          "--attribute" "GITHUB_REPOSITORY=$GITHUB_REPOSITORY" \
+          "--source-dir=${SRCDIR}" \
+          "--destination-dir=${DESTDIR}" \
+          '**/*.adoc'
+        # PDF (single download)
+        # DocBook
+        ls -la "$DESTDIR"
+        find "$DESTDIR"
+
+    - name: Github Step Summary
+      shell: bash
+      run: |
+        version_asciidoctor=$(asciidoctor --version | perl -p -e "s#\n#<br/>#gm")
+        version_asciidoctor_pdf=$(asciidoctor-pdf --version | perl -p -e "s#\n#<br/>#gm")
+        version_dot=$(dot -V 2>&1)
+        version_wavedrom=$(wavedrom-cli --version)
+
+        cat >> /tmp/GITHUB_STEP_SUMMARY$$.txt <<EOF
+        ### Versions
+
+        | Package         | Version                  |
+        | --------------- | ------------------------ |
+        | asciidoctor     | $version_asciidoctor     |
+        | asciidoctor-pdf | $version_asciidoctor_pdf |
+        | dot             | $version_dot             |
+        | wavedrom        | $version_wavedrom        |
+        EOF
+        
+        cat /tmp/GITHUB_STEP_SUMMARY$$.txt
+        cat /tmp/GITHUB_STEP_SUMMARY$$.txt >> $GITHUB_STEP_SUMMARY
+
+        pwd
+        ls -la
+
+    - name: Archive asciidoc
+      uses: actions/upload-artifact@v3
+      with:
+        name: asciidoc
+        path: |
+          docs_output/*
+          asciidoc/*
+

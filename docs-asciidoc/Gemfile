@@ -1,0 +1,3 @@
+source 'https://rubygems.org'
+gem 'asciidoctor-diagram', '>= 2'
+gem 'asciidoctor-pdf', '>= 2'
