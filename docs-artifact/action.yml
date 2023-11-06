@@ -1,0 +1,17 @@
+name: 'Tiny Tapeout Docs Action'
+description: 'This action create the documentation artifact of your Tiny Tapeout project'
+branding:
+  color: purple
+  icon: book-open
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Archive docs
+      uses: actions/upload-artifact@v3
+      with:
+        name: docs
+        path: |
+          docs_output/*
+          pandoc/*
+          asciidoc/*
