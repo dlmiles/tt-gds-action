@@ -1,0 +1,99 @@
+name: 'Tiny Tapeout STA Report Action'
+description: 'This action creates STA report summary of your Tiny Tapeout project'
+branding:
+  color: purple
+  icon: book-open
+
+inputs:
+  token:
+    description: 'A Github PAT'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: 'gh CLI run download...'
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      shell: bash
+      run: |
+        REPO_ARGS="-R ${GITHUB_REPOSITORY}"
+        JSON_ARGS="--json conclusion,databaseId,headBranch,headSha,name,number,status,workflowDatabaseId,workflowName"
+        SELECT_headSha="${GITHUB_SHA}"
+
+        echo JSON_ARGS=$JSON_ARGS
+        echo SELECT_headSha=$SELECT_headSha
+        branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+        echo branch=$branch
+
+        # Must match SHA and branch workflow is operating on (as sha can be tagged into multiple branches)
+        jq_filter_expr="select(.headSha == \"${SELECT_headSha}\" and .headBranch == \"${branch}\")"
+
+        # gds.yaml artifacts
+                         gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr" | jq -C
+        gds_databaseId=$(gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr  | .databaseId" | jq -cr | tr -d '\n')
+        if [ -n "${gds_databaseId}" ]
+        then
+          if gh run download ${REPO_ARGS} "${gds_databaseId}" -D GDS_logs -n GDS_logs
+          then
+            echo "check_gds_GDS_logs_artifact=true" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+    - name: Checkout tt-support-tools repo
+      uses: actions/checkout@v3
+      with:
+        repository: tinytapeout/tt-support-tools
+        path: tt
+        ref: tt05
+
+    - name: Setup python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        cache: 'pip' # caching pip dependencies
+
+    - shell: bash
+      run: |
+        pip install -r tt/requirements.txt
+
+    - name: Install packages
+      shell: bash
+      run: |
+        sudo apt-get update -y
+        #sudo apt-get install -y
+
+    - shell: bash
+      run: |
+        pip install -r ${{github.action_path  }}/requirements.txt
+
+    - name: Setup Path
+      shell: bash
+      run: echo "${{ github.action_path }}" >> $GITHUB_PATH
+
+    - name: Report
+      shell: bash
+      run: |
+        pwd
+        echo "### ."
+        ls -la
+        echo "### GDS_logs"
+        ls -la GDS_logs
+        find GDS_logs -type f -name "*.rpt"
+        sta_report.py -D GDS_logs
+
+    - name: Github Step Summary
+      shell: bash
+      run: |
+        sta_report.py --github-step-summary >> $GITHUB_STEP_SUMMARY
+        
+        mkdir -p sta_reporter        
+
+        echo "<h1>STA Reporter</h1>" > sta_reporter/index.html
+        echo "<div>Browsable version of STA reports, see GHA action summary</div>" >> sta_reporter/index.html
+
+    - name: Archive Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: STA
+        path: sta_reporter
