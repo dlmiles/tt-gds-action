@@ -26,38 +26,125 @@ runs:
         #SELECT_headSha="06d09f0afb2b318d045cb9d9b492f40c87e3ac76"
         SELECT_headSha="${GITHUB_SHA}"
 
+        echo JSON_ARGS=$JSON_ARGS
+        echo SELECT_headSha=$SELECT_headSha
+        branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
+        echo branch=$branch
+
+        # Must match SHA and branch workflow is operating on (as sha can be tagged into multiple branches)
+        jq_filter_expr="select(.headSha == \"${SELECT_headSha}\" and .headBranch == \"${branch}\" and .conclusion == \"success\")"
+        # head -n1 ... as failed/multiple runs restarted will show up
+
+        # allows a workflow to not have been run at all
+        set +e
+
         # gds.yaml artifacts
-                         gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\")" | jq -C
-        gds_databaseId=$(gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId" | jq -cr | tr -d '\n')
+        echo "Listing: gds.yaml"
+                         gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr" | jq -C
+        gds_databaseId=$(gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr  | .databaseId" | head -n1 | jq -cr | tr -d '\n')
         if [ -n "${gds_databaseId}" ]
         then
+          # The old location of the viewer
+          echo "Download: gds.yaml viewer => viewer"
           if gh run download ${REPO_ARGS} "${gds_databaseId}" -D viewer -n viewer
           then
             echo "check_gds_viewer_artifact=true" >> $GITHUB_OUTPUT
           fi
+          echo "Download: gds.yaml gatelevel-test-vcd => gatelevel-test-vcd"
+          if gh run download ${REPO_ARGS} "${gds_databaseId}" -D gatelevel-test-vcd -n gatelevel-test-vcd
+          then
+            echo "check_gds_gatelevel-test-vcd_artifact=true" >> $GITHUB_OUTPUT
+          fi
+          echo "Download: gds.yaml GDS_logs => GDS_logs"
+          if gh run download ${REPO_ARGS} "${gds_databaseId}" -D GDS_logs -n GDS_logs
+          then
+            echo "check_gds_GDS_logs_artifact=true" >> $GITHUB_OUTPUT
+          fi
         fi
 
         # docs.yaml artifacts
-                          gh run list ${REPO_ARGS} --workflow docs.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\")" | jq -C
-        docs_databaseId=$(gh run list ${REPO_ARGS} --workflow docs.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId" | jq -cr | tr -d '\n')
+        echo "Listing: docs.yaml"
+                          gh run list ${REPO_ARGS} --workflow docs.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr" | jq -C
+        docs_databaseId=$(gh run list ${REPO_ARGS} --workflow docs.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr  | .databaseId" | head -n1 | jq -cr | tr -d '\n')
         if [ -n "${docs_databaseId}" ]
         then
+          echo "Download: docs.yaml PDF => docs"
           if gh run download ${REPO_ARGS} "${docs_databaseId}" -D docs -n PDF
           then
             echo "check_docs_PDF_artifact=true" >> $GITHUB_OUTPUT
           fi
+          echo "Download: asciidoc.yaml asciidoc => docs"
+          if gh run download ${REPO_ARGS} "${docs_databaseId}" -D docs -n asciidoc
+          then
+            echo "check_docs_asciidoc_artifact=true" >> $GITHUB_OUTPUT
+          fi
+          echo "Download: pandoc.yaml pandoc => docs"
+          if gh run download ${REPO_ARGS} "${docs_databaseId}" -D docs -n pandoc
+          then
+            echo "check_docs_pandoc_artifact=true" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+        # test.yaml artifacts
+        echo "Listing: test.yaml"
+                          gh run list ${REPO_ARGS} --workflow test.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr" | jq -C
+        test_databaseId=$(gh run list ${REPO_ARGS} --workflow test.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr  | .databaseId" | head -n1 | jq -cr | tr -d '\n')
+        if [ -n "${test_databaseId}" ]
+        then
+          echo "Download: test.yaml test-vcd => test-vcd"
+          if gh run download ${REPO_ARGS} "${test_databaseId}" -D test-vcd -n test-vcd
+          then
+            echo "check_test_test-vcd_artifact=true" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+        # viewer.yaml artifacts
+        echo "Listing: viewer.yaml"
+                            gh run list ${REPO_ARGS} --workflow viewer.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr" | jq -C
+        viewer_databaseId=$(gh run list ${REPO_ARGS} --workflow viewer.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr  | .databaseId" | head -n1 | jq -cr | tr -d '\n')
+        if [ -n "${viewer_databaseId}" ]
+        then
+          # The new location of the viewer
+          echo "Download: viewer.yaml viewer => viewer"
+          if gh run download ${REPO_ARGS} "${viewer_databaseId}" -D viewer -n viewer
+          then
+            echo "check_viewer_viewer_artifact=true" >> $GITHUB_OUTPUT
+          fi
         fi
 
         # coverage.yaml artifacts
-                              gh run list ${REPO_ARGS} --workflow coverage.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\")" | jq -C
-        coverage_databaseId=$(gh run list ${REPO_ARGS} --workflow coverage.yaml ${JSON_ARGS} -q ".[] | select(.headSha == \"${SELECT_headSha}\") | .databaseId" | jq -cr | tr -d '\n')
+        echo "Listing: coverage.yaml"
+                              gh run list ${REPO_ARGS} --workflow coverage.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr" | jq -C
+        coverage_databaseId=$(gh run list ${REPO_ARGS} --workflow coverage.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr  | .databaseId" | head -n1 | jq -cr | tr -d '\n')
         if [ -n "${coverage_databaseId}" ]
         then
+          echo "Download: coverage.yaml coverage => coverage"
           if gh run download ${REPO_ARGS} "${coverage_databaseId}" -D coverage -n coverage
           then
             echo "check_coverage_coverage_artifact=true" >> $GITHUB_OUTPUT        
           fi
+          echo "Download: coverage.yaml coverage-vcd => coverage-vcd"
+          if gh run download ${REPO_ARGS} "${coverage_databaseId}" -D coverage-vcd -n coverage-vcd
+          then
+            echo "check_coverage_coverage-vcd_artifact=true" >> $GITHUB_OUTPUT
+          fi
         fi
+
+        # sta_reporter.yaml artifacts
+        echo "Listing: sta_reporter.yaml"
+                                  gh run list ${REPO_ARGS} --workflow sta_reporter.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr" | jq -C
+        sta_reporter_databaseId=$(gh run list ${REPO_ARGS} --workflow sta_reporter.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr  | .databaseId" | head -n1 | jq -cr | tr -d '\n')
+        if [ -n "${sta_reporter_databaseId}" ]
+        then
+          echo "Download: sta_reporter.yaml sta_reporter => sta_reporter"
+          if gh run download ${REPO_ARGS} "${sta_reporter_databaseId}" -D sta_reporter -n STA
+          then
+            echo "check_sta_reporter_sta_reporter_artifact=true" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+        # restore failure on error
+        set -e
 
         find . || true
         ls -lR || true
@@ -97,11 +184,86 @@ runs:
       shell: bash
       run: |
         mkdir gh-pages
+        GH_PAGES="$(pwd)/gh-pages"
+        mkdir -p gh-pages/waveform
 
-        [ ! -d docs     ] || cp -av docs     gh-pages/
-        [ ! -d coverage ] || cp -av coverage gh-pages/
-        # Currently this next one has homepage
-        [ ! -d viewer   ] || cp -av viewer   gh-pages/
+        if [ -d GDS_logs/runs/wokwi/results/final/verilog/gl ]
+        then
+          mkdir -p gatelevel-browser
+          find GDS_logs/runs/wokwi/results/final/verilog/gl -iname "*.v" -exec cp -vi {} gatelevel-browser/ \;
+          top_verilog_file=$(find gatelevel-browser -not -name "*.nl.v" -iname "*.v" -printf "%P")
+          top=$(basename "$top_verilog_file" ".v")
+
+          # FIXME move this to python template generator
+          cat << EOF >> gatelevel-browser/index.html
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Redirecting to gatelevel-browser/index.html</title>
+          </head>
+          <body>
+            <div>
+              <a href="${top}.v">${top}.v (with power pins)</a></br>
+
+              <a href="${top}.nl.v">${top}.nl.v (unpowered netlist)</a></br>
+            </div>
+          </body>
+          </html>
+        EOF
+          echo "Creating: gatelevel-browser/index.html"
+          cat gatelevel-browser/index.html
+        fi
+
+        if [ -d docs ]
+        then
+          mkdir -p gh-pages/docs
+          find docs -maxdepth 1 -type f -exec cp -av {} "${GH_PAGES}/docs/" \;
+          if [ -d docs/docs_output ]
+          then
+            pushd docs/docs_output
+            find . -type d -exec cp -av {} "${GH_PAGES}/docs/" \;
+            popd
+          fi
+        fi
+
+        [ ! -d viewer                 ] || cp -av viewer                  gh-pages/
+        [ ! -d coverage               ] || cp -av coverage                gh-pages/
+        [ ! -d sta_reporter           ] || cp -av sta_reporter            gh-pages/
+        [ ! -d test-vcd/test_reporter ] || cp -av test-vcd/test_reporter  gh-pages/
+        [ ! -d gatelevel-browser      ] || cp -av gatelevel-browser       gh-pages/
+
+        # TODO consider gh-pages/waveform/test/tb.vcd ?
+
+        if [ -d test-vcd ]
+        then
+          mkdir -p gh-pages/waveform/test
+          # Apply sanity file size limits
+          find test-vcd -type f -size -192M -exec cp -av {} gh-pages/waveform/test/ \;
+        fi
+
+        if [ -d gatelevel-test-vcd ]
+        then
+          mkdir -p gh-pages/waveform/gatelevel-test
+          # Apply sanity file size limits
+          find gatelevel-test-vcd -type f -size -192M -exec cp -av {} gh-pages/waveform/gatelevel-test/ \;
+        fi
+
+        if [ -d coverage-vcd ]
+        then
+          mkdir -p gh-pages/waveform/coverage
+          if [ -f coverage-vcd/dump.vcd ] && [ ! -f coverage-vcd/tb.vcd ]
+          then
+            # rename dump.vcd
+            mv coverage-vcd/dump.vcd coverage-vcd/tb.vcd
+          fi
+          # Apply sanity file size limits
+          find coverage-vcd -type f -size -192M -exec cp -av {} gh-pages/waveform/coverage/ \;
+        fi
+
+        # Currently this next one has homepage [ !  -d viewer ] || cp -av viewer gh-pages/
 
         # Surfer (https://surfer-project.org/) support
         if wget -q -O surfer.zip "https://gitlab.com/api/v4/projects/42073614/jobs/artifacts/main/download?job=pages"
@@ -119,17 +281,24 @@ runs:
           [ ! -d public   ] || cp -av public    gh-pages/surfer
 
           # Fake VCD files for testing
-          wget -q -O test-vcd.vcd "https://raw.githubusercontent.com/wavedrom/vcd-samples/trunk/swerv1.vcd"
-          cp -v test-vcd.vcd test-vcd.bak
-          gzip -9v test-vcd.vcd
-          mv -v test-vcd.bak test-vcd.vcd
+          #wget -q -O test-vcd.vcd "https://raw.githubusercontent.com/wavedrom/vcd-samples/trunk/swerv1.vcd"
+          #cp -v test-vcd.vcd test-vcd.bak
+          #gzip -9v test-vcd.vcd
+          #mv -v test-vcd.bak test-vcd.vcd
 
-          cp -v test-vcd.vcd gatelevel-test-vcd.vcd
-          cp -v test-vcd.vcd.gz gatelevel-test-vcd.vcd.gz
+          #cp -v test-vcd.vcd gatelevel-test-vcd.vcd
+          #cp -v test-vcd.vcd.gz gatelevel-test-vcd.vcd.gz
 
-          mkdir gh-pages/waveform
-          mv -v test-vcd* gh-pages/waveform/
-          mv -v gatelevel-test-vcd* gh-pages/waveform/
+          mkdir -p gh-pages/waveform
+          #mv -v test-vcd* gh-pages/waveform/
+          #mv -v gatelevel-test-vcd* gh-pages/waveform/
+          for f in $(find gh-pages/waveform -type f -name "*.vcd" -or -name "*.fst")
+          do
+            if [ -f "${f}" ] && [ ! -f "${f}.gz" ]
+            then
+              gzip -9v --keep "${f}"
+            fi
+          done
         fi
 
         # Coverage link will target /coverage/ but it is actually at coverage/coverage_html/index.html
@@ -156,12 +325,77 @@ runs:
         fi
 
         # Homepage
-        if [ -f gh-pages/viewer/index.html ] && [ ! -f gh-pages/index.html ]
+        if [ ! -f gh-pages/index.html ]
         then
           _GITHUB_PROJECT_NAME=$(echo -n "$GITHUB_REPOSITORY" | cut -d '/' -f2-)
           PAGE_URL=${PAGE_URL:-"https://${GITHUB_REPOSITORY_OWNER}.github.io/${_GITHUB_PROJECT_NAME}"}
-          VIEWER_PAGE_URL="${PAGE_URL}/viewer"
-          VIEWER_PAGE_URL=$(echo "$VIEWER_PAGE_URL" | sed -e 's/\/$//')
+
+          HTML_GITHUB_PROJECT="<div><a href=\"https://github.com/$GITHUB_REPOSITORY\">GitHub Project</a></div>"
+
+          if [ -f "gh-pages/viewer/index.html" ]
+          then
+            echo "HTML Adding: viewer/index.html"
+            HTML_VIEWER="<div><a href=\"viewer/index.html\">GDS 3D Viewer</a></div>"
+          fi
+          if [ -f "gh-pages/coverage/coverage_html/index.html" ]
+          then
+            echo "HTML Adding: coverage/coverage_html/index.html"
+            HTML_COVERAGE="<div><a href=\"coverage/coverage_html/index.html\">Coverage</a></div>"
+          fi
+          if [ -f "gh-pages/viewer/gds_render.png" ]
+          then
+            echo "HTML Adding: viewer/gds_render.png"
+            VIEWER_PAGE_URL="${PAGE_URL}/viewer"
+            VIEWER_PAGE_URL=$(echo "$VIEWER_PAGE_URL" | sed -e 's/\/$//')
+            #HTML_VIEWER_RENDER="<div><img src=\"$VIEWER_PAGE_URL/gds_render.png\"/></div>"
+            HTML_VIEWER_RENDER="<div><img src=\"viewer/gds_render.png\"/></div>"
+          fi
+
+          if [ -f gh-pages/docs/datasheet.pdf ]
+          then
+            echo "HTML Adding: docs/datasheet.pdf"
+            HTML_DOCS_DATASHEET_PDF="<div><a href=\"docs/datasheet.pdf\">Datasheet (docs/datasheet.pdf)</a></div>"
+          fi
+          if [ -d gh-pages/docs/pandoc ]
+          then
+            echo "HTML Adding: docs/pandoc/"
+            HTML_DOCS_PANDOC="<div><a href=\"docs/pandoc/\">pandoc (docs/pandoc/)</a></div>"
+          fi
+          if [ -d gh-pages/docs/asciidoc ]
+          then
+            echo "HTML Adding: docs/asciidoc/"
+            HTML_DOCS_ASCIIDOC="<div><a href=\"docs/asciidoc/\">ASCIIDoc (docs/asciidoc/)</a></div>"
+          fi
+
+          if [ -f gh-pages/waveform/test/tb.vcd ]
+          then
+            echo "HTML Adding: test/tb.vcd"
+            HTML_TEST_VCD="<div><a href=\"surfer/index.html?load_url=${PAGE_URL}/waveform/test/tb.vcd\">Surfer VCD Viewer (test/tb.vcd)</a></div>"
+          fi
+          if [ -f gh-pages/waveform/gatelevel-test/tb.vcd ]
+          then
+            echo "HTML Adding: gatelevel-test/tb.vcd"
+            HTML_GATELEVEL_TEST_VCD="<div><a href=\"surfer/index.html?load_url=${PAGE_URL}/waveform/gatelevel-test/tb.vcd\">Surfer VCD Viewer (gatelevel-test/tb.vcd)</a></div>"
+          fi
+          if [ -f gh-pages/waveform/coverage/tb.vcd ]
+          then
+            echo "HTML Adding: coverage/tb.vcd"
+            HTML_COVERAGE_VCD="<div><a href=\"surfer/index.html?load_url=${PAGE_URL}/waveform/coverage/tb.vcd\">Surfer VCD Viewer (coverage/tb.vcd)</a></div>"
+          fi
+
+          if [ -d gh-pages/test_reporter ]
+          then
+            echo "HTML Adding: test_reporter/"
+            HTML_TEST_REPORTER="<div><a href=\"test_reporter/\">Test Reporter (test_reporter/)</a></div>"
+          fi
+
+          if [ -d gh-pages/sta_reporter ]
+          then
+            echo "HTML Adding: sta_reporter/"
+            HTML_STA_REPORTER="<div><a href=\"sta_reporter/\">STA Reporter (sta_reporter/)</a></div>"
+          fi
+
+          HTML_GATELEVEL_BROWSER="<div><a href=\"gatelevel-browser/\">Gatelevel Verilog Browser (gatelevel-browser/)</a></div>"
 
           cat << EOF >> gh-pages/index.html
           <!DOCTYPE html>
@@ -174,12 +408,19 @@ runs:
           </head>
           <body>
             <div>
-              <div><a href="viewer/index.html">GDS 3D Viewer</a></div>
-              <div><a href="coverage/coverage_html/index.html">Coverage</a></div>
-              <div><a href="docs/datasheet.pdf">datasheet.pdf</a></div>
-              <div><a href="surfer/index.html?load_url=${PAGE_URL}/waveform/test-vcd.vcd">Surfer VCD Viewer (test-vcd.vcd)</a></div>
-              <div><a href="surfer/index.html?load_url=${PAGE_URL}/waveform/gatelevel-test-vcd.vcd">Surfer VCD Viewer (gatelevel-test-vcd.vcd)</a></div>
-              <div><img src="$VIEWER_PAGE_URL/gds_render.png"/></div>
+              ${HTML_GITHUB_PROJECT}
+              ${HTML_VIEWER}
+              ${HTML_COVERAGE}
+              ${HTML_DOCS_DATASHEET_PDF}
+              ${HTML_DOCS_PANDOC}
+              ${HTML_DOCS_ASCIIDOC}
+              ${HTML_TEST_VCD}
+              ${HTML_GATELEVEL_TEST_VCD}
+              ${HTML_COVERAGE_VCD}
+              ${HTML_TEST_REPORTER}
+              ${HTML_STA_REPORTER}
+              ${HTML_GATELEVEL_BROWSER}
+              ${HTML_VIEWER_RENDER}
             </div>
           </body>
           </html>
@@ -193,6 +434,13 @@ runs:
 
         find gh-pages || true
         ls -lR gh-pages || true
+
+    - name: Github Step Summary
+      shell: bash
+      run: |
+        _GITHUB_PROJECT_NAME=$(echo -n "$GITHUB_REPOSITORY" | cut -d '/' -f2-)
+        PAGE_URL=${PAGE_URL:-"https://${GITHUB_REPOSITORY_OWNER}.github.io/${_GITHUB_PROJECT_NAME}"}
+        echo "[Github Pages](${PAGE_URL}/)" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload artifact
       uses: actions/upload-pages-artifact@v1
