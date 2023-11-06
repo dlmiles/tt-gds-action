@@ -136,10 +136,14 @@ runs:
           echo "BEFORE dependencies/tool_metadata.yml:"
           sed -n -e '\/ name: open_pdks/,\/^-/p' dependencies/tool_metadata.yml
 
-          sed -e '\/ name: open_pdks/b' -e "\\/^  commit: /c\\  commit: ${PDK_VERSION}" -i dependencies/tool_metadata.yml
+          sed -e "\\/ name: open_pdks/,\\/  commit:/{\\/  commit: /{s/^  commit: .\\+/  commit: ${PDK_VERSION}/}}" -i dependencies/tool_metadata.yml
+          #sed -e '\/ name: open_pdks/b' -e "\\/^  commit: /c\\  commit: ${PDK_VERSION}" -i dependencies/tool_metadata.yml
 
           echo "AFTER dependencies/tool_metadata.yml:"
           sed -n -e '\/ name: open_pdks/,\/^-/p' dependencies/tool_metadata.yml
+
+          echo "dependencies/tool_metadata.yml:"
+          cat dependencies/tool_metadata.yml
         fi
 
         make
