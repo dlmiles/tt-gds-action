@@ -4,6 +4,15 @@ branding:
   color: purple
   icon: eye
 
+inputs:
+  token:
+    description: 'A Github PAT'
+    required: true
+  CAN_DEPLOY:
+    description: 'Perform GH pages deployment ?'
+    type: boolean
+    default: false
+
 runs:
   using: 'composite'
   steps:
@@ -18,23 +27,62 @@ runs:
         python-version: '3.10'
         cache: 'pip' # caching pip dependencies
 
-    - name: Download GDS artifact
-      uses: actions/download-artifact@v3
-      with:
-        name: GDS
+    - name: 'gh CLI run download...'
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      shell: bash
+      run: |
+        REPO_ARGS="-R ${GITHUB_REPOSITORY}"
+        JSON_ARGS="--json conclusion,createdAt,databaseId,displayTitle,event,headBranch,headSha,name,number,startedAt,status,updatedAt,url,workflowDatabaseId,workflowName"
+        SELECT_headSha="${GITHUB_SHA}"
+        branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}
 
-    - name: Download gds_render (png) artifact
-      uses: actions/download-artifact@v3
-      with:
-        name: gds_render
-        path: gh-pages
+        # Must match SHA and branch workflow is operating on (as sha can be tagged into multiple branches)
+        jq_filter_expr="select(.headSha == \"${SELECT_headSha}\" and .headBranch == \"${branch}\" and .conclusion == \"success\")"
+        # head -n1 ... as failed/multiple runs restarted will show up
+
+        # gds.yaml artifacts
+        echo "Listing: gds.yaml"
+                         gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr" | jq -C
+        gds_databaseId=$(gh run list ${REPO_ARGS} --workflow gds.yaml ${JSON_ARGS} -q ".[] | $jq_filter_expr  | .databaseId" | head -n1 | jq -cr | tr -d '\n')
+        if [ -n "${gds_databaseId}" ]
+        then
+          echo "Download: gds.yaml GDS GDS"
+          if gh run download ${REPO_ARGS} "${gds_databaseId}" -D GDS -n GDS
+          then
+            echo "check_gds_GDS_artifact=true" >> $GITHUB_OUTPUT
+          fi
+          echo "Download: gds.yaml gds_render gds_render"
+          if gh run download ${REPO_ARGS} "${gds_databaseId}" -D gds_render -n gds_render
+          then
+            echo "check_gds_gds_render_artifact=true" >> $GITHUB_OUTPUT
+          fi
+        fi
+        ls -la
+        find GDS
+
+    # This can only access the artifacts from THIS workflow file
+    #- name: Download GDS artifact
+    #  uses: actions/download-artifact@v3
+    #  with:
+    #    name: GDS
+
+    #- name: Download gds_render (png) artifact
+    #  uses: actions/download-artifact@v3
+    #  with:
+    #    name: gds_render
+    #    path: gh-pages
 
     - name: gds2gltf
       shell: bash
       run: |
+        GDS_BASE_DIR=""
+        [ ! -d GDS ] || GDS_BASE_DIR="GDS/"
         python -m pip install numpy gdspy triangle pygltflib
-        cp runs/wokwi/results/final/gds/*.gds tinytapeout.gds
+        cp ${GDS_BASE_DIR}runs/wokwi/results/final/gds/*.gds tinytapeout.gds
         python3 gds2gltf.py tinytapeout.gds
+        mkdir -p gh-pages
+        cp -av gds_render/* gh-pages/
         cp tinytapeout.gds.gltf gh-pages/tinytapeout.gds.gltf
 
     - name: Generate HTML pages that redirects to viewer
@@ -51,7 +99,9 @@ runs:
           </head>
           <body>
             <script>
-              location.href = "https://gds-viewer.tinytapeout.com/?model=" + encodeURIComponent(location.href + '/tinytapeout.gds.gltf');
+              var _location = location.protocol+'//'+location.host+location.pathname;
+              _location = _location.replace(/\/index.html$/, "/");
+              location.href = "https://gds-viewer.tinytapeout.com/?model=" + encodeURIComponent(_location + 'tinytapeout.gds.gltf');
             </script>
           </body>
           </html>
@@ -64,6 +114,7 @@ runs:
         path: 'gh-pages'
 
     - name: Display preview in workflow summary
+      if: inputs.CAN_DEPLOY == true
       shell: bash
       run: |
         PAGE_URL=${{ steps.deployment.outputs.page_url }}
