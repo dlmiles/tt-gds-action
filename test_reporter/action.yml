@@ -1,0 +1,39 @@
+name: 'Tiny Tapeout Test Report Action'
+description: 'This action creates Test report summary of your Tiny Tapeout project'
+branding:
+  color: purple
+  icon: book-open
+
+inputs:
+  results-file:
+    description: 'TestCase results.xml file'
+    default: '**/results.xml'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        #cache: 'pip' # caching pip dependencies
+
+    - shell: bash
+      run: |
+        pip install -r ${{ github.action_path }}/requirements.txt
+
+    - name: Setup Path
+      shell: bash
+      run: echo "${{ github.action_path }}" >> $GITHUB_PATH
+
+    - name: Github Step Summary
+      shell: bash
+      run: |
+        test_report.py --github-step-summary >> $GITHUB_STEP_SUMMARY
+
+        mkdir -p test_reporter
+
+        echo "<h1>Test Reporter</h1>" > test_reporter/index.html
+        echo "<div>Browsable version of Test reports, see GHA action summary</div>" >> test_reporter/index.html
+
